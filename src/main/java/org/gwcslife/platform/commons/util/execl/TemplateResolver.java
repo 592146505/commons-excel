@@ -2,7 +2,6 @@ package org.gwcslife.platform.commons.util.execl;
 
 import lombok.Data;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -10,6 +9,7 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.gwcslife.platform.commons.util.execl.model.Header;
 import org.gwcslife.platform.commons.util.execl.model.Issue;
+import org.gwcslife.platform.commons.util.execl.model.Option;
 
 import java.io.*;
 import java.net.URL;
@@ -38,40 +38,33 @@ public class TemplateResolver {
             // 获取表头
             Header header = initHeader(sheet);
             // 获取分类个数
-            int classCount = header.getClassList().size();
+            int classCount = header.getClassCount();
             // 获取问题个数
-            int issueCount = header.getIssues().size();
+            int issueCount = header.getIssueCount();
             // 获取所有数据
             List<List<String>> allData = getAllData(sheet);
-            // 处理数据
-            for (int y = 0; y < allData.size(); y++) {
-                // 行
-                List<String> rowData = allData.get(y);
-                for (int x = 0; x < rowData.size(); x++) {
-                    String value = rowData.get(x);
-                    // 不为空
-                    if (value != null && !"".equals(value.trim())) {
+            // 处理class数据
+            for (int row = 0; row < allData.size(); row++) {
+                // 行数据
+                List<String> rowData = allData.get(row);
+                for (int column = 0; column < classCount; column++) {
+                    String value = rowData.get(column);
+                    // 是否为合并列
+                    Result region = isMergedRegion(mergeRegions, row, column);
+                    if (region != null) {
+                        // 判断层级
+                        if (region.startRow) {
+
+                        }
+                    } else if (null != value && !"".equals(value.trim())) {
                         Issue issue = new Issue();
                         issue.setTitle(value);
-                        // 表头
-                        if (x < clazzCount + issueCount - 2) {
-                            issue.setType("C1");
-                        } else {
-                            if (x % 2 = 0)
-                        }
-
-                        Result region = isMergedRegion(mergeRegions, x, y);
-                        // 合并行
-                        if (region != null) {
-
-                        } else {
-
-                        }
+                        issue.setType("C1");
+                        Option option = new Option();
+                        option.setFlow("F02");
+                        issue.setOption();
                     }
-                    // 为空
-                    else {
 
-                    }
                 }
             }
         } catch (Exception e) {

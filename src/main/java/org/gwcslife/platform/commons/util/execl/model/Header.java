@@ -41,4 +41,31 @@ public class Header implements Serializable {
             }
         }
     }
+
+    /**
+     * 获取表头个数
+     *
+     * @return {@code int}
+     */
+    public int getHeaderCount() {
+        return header.size();
+    }
+
+    /**
+     * 获取分类个数
+     *
+     * @return {@code int}
+     */
+    public int getClassCount() {
+        return classList.size();
+    }
+
+    /**
+     * 获取问题个数
+     *
+     * @return {@code int}
+     */
+    public int getIssueCount() {
+        return issues.size();
+    }
 }
