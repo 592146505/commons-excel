@@ -26,52 +26,115 @@ import java.util.stream.Collectors;
  */
 public class TemplateResolver {
 
+    static Header header;
+    static List<Result> mergeRegions;
+    static List<List<String>> allData;
+
     public static void main(String[] args) {
         try (Workbook wb = createWorkbook("cs.xlsx")) {
             Sheet sheet = wb.getSheetAt(0);
-            List<Result> mergeRegions = getAllMergedRegions(sheet);
+            mergeRegions = getAllMergedRegions(sheet);
             // 获取最后一行
             int lastRow = sheet.getLastRowNum();
             if (lastRow < 1) {
                 return;
             }
             // 获取表头
-            Header header = initHeader(sheet);
+            header = parseHeader(sheet);
             // 获取分类个数
             int classCount = header.getClassCount();
             // 获取问题个数
             int issueCount = header.getIssueCount();
             // 获取所有数据
-            List<List<String>> allData = getAllData(sheet);
-            // 处理class数据
+            allData = getAllData(sheet);
+            // 处理ClassModel数据
             for (int row = 0; row < allData.size(); row++) {
+                int column = 0;
                 // 行数据
                 List<String> rowData = allData.get(row);
-                for (int column = 0; column < classCount; column++) {
-                    String value = rowData.get(column);
-                    // 是否为合并列
-                    Result region = isMergedRegion(mergeRegions, row, column);
-                    if (region != null) {
-                        // 判断层级
-                        if (region.startRow) {
+                Issue issue = new Issue();
+                issue.setTitle(rowData.get(column));
+                issue.setType("C1");
+                // 合并单元格
+                Result region = isMergedRegion(mergeRegions, row, column);
 
-                        }
-                    } else if (null != value && !"".equals(value.trim())) {
-                        Issue issue = new Issue();
-                        issue.setTitle(value);
-                        issue.setType("C1");
-                        Option option = new Option();
-                        option.setFlow("F02");
-                        issue.setOption();
-                    }
-
+                if (region != null) {
+                    getChildren(issue, region.startRow, region.endRow, column + 1);
+                    row = region.endRow;
+                } else {
+                    getChildren(issue, row, row, column + 1);
                 }
+                System.out.println(issue);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * 获取下级
+     *
+     * @param parentIssue 上级节点
+     * @param startRow    开始行
+     * @param endRow      结束行
+     * @param column      列
+     */
+    private static void getChildren(Issue parentIssue, int startRow, int endRow, int column) {
+        //                if (column >= header.getClassCount() + (header.getIssueCount() * 2)) {
+        if (column > header.getClassCount()) {
+            return;
+        }
+        // 循环当前列单元格
+        for (int i = startRow; i <= endRow; i++) {
+            List<String> rowData = allData.get(i);
+            String cellValue = rowData.get(column);
+            // 不为空，加入父节点
+            Issue issue = parentIssue;
+            if (null != cellValue && !"".equals(cellValue)) {
+                issue = new Issue();
+                issue.setTitle(cellValue);
+                issue.setType("C1");
+                parentIssue.getChildren().add(issue);
+            }
+            // 合并单元格,则递归子节点
+            Result region = isMergedRegion(mergeRegions, i, column);
+            if (region != null) {
+                getChildren(issue, region.startRow, region.endRow, column + 1);
+                i = region.endRow;
+            }
+            // 非合并单元格
+            else {
+                // 数据为空时,后续问题列都为空,则直接取到结论
+                if (null == cellValue || "".equals(cellValue)) {
+                    String conclusion = rowData.get(header.getConclusionColumn());
+                    String remark = rowData.get(header.getConclusionColumn() + 1);
+                    Option option = new Option().setContent("默认").setCode("default");
+                    if (null != conclusion && !"".equals(conclusion.trim())) {
+                        if ("正常承保".equals(conclusion)) {
+                            option.setFlow("F05");
+                        } else if ("非常遗憾，被保险人无法投保该险种。".equals(conclusion)) {
+                            option.setFlow("F01");
+                        }
+                    } else {
+                        if (null != remark && !"".equals(remark.trim())) {
+                            option.setFlow("F04");
+                            option.setExceptCode(remark);
+                        }
+                    }
+                    issue.addOption(option);
+                }
+            }
+
+        }
+    }
+
+    /**
+     * 创建工作薄对象
+     *
+     * @param path 资源路径
+     *
+     * @return {@code Workbook} File suffix (.xslx) creates {@link XSSFWorkbook}, otherwise create {@link HSSFWorkbook}
+     */
     private static Workbook createWorkbook(String path) {
         ClassLoader loader = TemplateResolver.class.getClassLoader();
         URL url = loader.getResource(path);
@@ -89,13 +152,13 @@ public class TemplateResolver {
     }
 
     /**
-     * 初始化表头
+     * 解析表头
      *
-     * @param sheet
+     * @param sheet Excel sheet
      *
      * @return {@code Header}
      */
-    private static Header initHeader(Sheet sheet) {
+    private static Header parseHeader(Sheet sheet) {
         // 获取表头
         Row firstRow = sheet.getRow(0);
         List<String> headers = new ArrayList<>();
@@ -106,7 +169,7 @@ public class TemplateResolver {
     /**
      * 获取所有数据
      *
-     * @param sheet
+     * @param sheet Excel sheet
      *
      * @return {@code List<List<String>>}
      */
@@ -125,7 +188,7 @@ public class TemplateResolver {
     /**
      * 获取所有合并单元格
      *
-     * @param sheet
+     * @param sheet Excel sheet
      */
     private static List<Result> getAllMergedRegions(Sheet sheet) {
         // 获取合并单元格
@@ -133,8 +196,9 @@ public class TemplateResolver {
         return mergedRegions.stream().map(range -> {
             int firstColumn = range.getFirstColumn();
             int lastColumn = range.getLastColumn();
-            int firstRow = range.getFirstRow();
-            int lastRow = range.getLastRow();
+            // 由于数据行从行号1（第二行）开始读取，所以这里减1
+            int firstRow = range.getFirstRow() - 1;
+            int lastRow = range.getLastRow() - 1;
             return new Result(firstRow, lastRow, firstColumn, lastColumn);
         }).collect(Collectors.toList());
     }
@@ -150,10 +214,10 @@ public class TemplateResolver {
      */
     private static Result isMergedRegion(List<Result> mergeRegions, int row, int column) {
         return mergeRegions.stream().filter(range -> {
-            int firstColumn = range.getStartRow();
-            int lastColumn = range.getEndCol();
             int firstRow = range.getStartRow();
             int lastRow = range.getEndRow();
+            int firstColumn = range.getStartCol();
+            int lastColumn = range.getEndCol();
             return (column >= firstColumn && column <= lastColumn) && (row >= firstRow && row <= lastRow);
         }).findFirst().orElse(null);
     }

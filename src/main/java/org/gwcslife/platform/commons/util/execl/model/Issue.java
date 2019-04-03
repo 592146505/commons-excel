@@ -1,8 +1,10 @@
 package org.gwcslife.platform.commons.util.execl.model;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -13,6 +15,7 @@ import java.util.List;
  * @date 2019-04-01 11:19
  */
 @Data
+@ToString(exclude = {"type"})
 public class Issue implements Serializable {
 
     private static final long serialVersionUID = -3715183351530890412L;
@@ -23,10 +26,14 @@ public class Issue implements Serializable {
     private String type;
 
     /** 选项 */
-    private List<Option> option;
+    private List<Option> options = new ArrayList<>();
 
     /** 子节点 */
-    private List<Issue> children;
+    private List<Issue> children = new ArrayList<>();
+
+    public void addOption(Option option) {
+        options.add(option);
+    }
 
 
 }
