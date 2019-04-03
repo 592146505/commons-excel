@@ -1,4 +1,4 @@
-package org.gwcslife.platform.commons.util.execl;
+package org.gwcslife.platform.commons.execl;
 
 import lombok.Data;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -7,11 +7,13 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.gwcslife.platform.commons.util.execl.model.Header;
-import org.gwcslife.platform.commons.util.execl.model.Issue;
-import org.gwcslife.platform.commons.util.execl.model.Option;
+import org.gwcslife.platform.commons.execl.model.Header;
+import org.gwcslife.platform.commons.execl.model.Issue;
+import org.gwcslife.platform.commons.execl.model.Option;
+import org.gwcslife.platform.commons.util.StringUtils;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,29 +43,20 @@ public class TemplateResolver {
             }
             // 获取表头
             header = parseHeader(sheet);
-            // 获取分类个数
-            int classCount = header.getClassCount();
-            // 获取问题个数
-            int issueCount = header.getIssueCount();
             // 获取所有数据
             allData = getAllData(sheet);
             // 处理ClassModel数据
-            for (int row = 0; row < allData.size(); row++) {
+            for (int i = 0; i < allData.size(); i++) {
                 int column = 0;
                 // 行数据
-                List<String> rowData = allData.get(row);
+                List<String> rowData = allData.get(i);
                 Issue issue = new Issue();
                 issue.setTitle(rowData.get(column));
                 issue.setType("C1");
-                // 合并单元格
-                Result region = isMergedRegion(mergeRegions, row, column);
-
-                if (region != null) {
-                    getChildren(issue, region.startRow, region.endRow, column + 1);
-                    row = region.endRow;
-                } else {
-                    getChildren(issue, row, row, column + 1);
-                }
+                // 合并单元格,需要定位开始行、结束行
+                int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
+                getChildren(issue, rowSpan[0], rowSpan[1], column + 1);
+                i = rowSpan[1];
                 System.out.println(issue);
             }
         } catch (Exception e) {
@@ -90,42 +83,43 @@ public class TemplateResolver {
             String cellValue = rowData.get(column);
             // 不为空，加入父节点
             Issue issue = parentIssue;
-            if (null != cellValue && !"".equals(cellValue)) {
+            if (StringUtils.isNotBlank(cellValue)) {
                 issue = new Issue();
                 issue.setTitle(cellValue);
                 issue.setType("C1");
                 parentIssue.getChildren().add(issue);
+            } else if (startRow == endRow) {
+                String conclusion = rowData.get(header.getConclusionColumn());
+                String remark = rowData.get(header.getConclusionColumn() + 1);
+                Option option = new Option().setContent("默认").setCode("default").setConclusion(conclusion, remark);
+                issue.addOption(option);
             }
-            // 合并单元格,则递归子节点
-            Result region = isMergedRegion(mergeRegions, i, column);
-            if (region != null) {
-                getChildren(issue, region.startRow, region.endRow, column + 1);
-                i = region.endRow;
-            }
-            // 非合并单元格
-            else {
-                // 数据为空时,后续问题列都为空,则直接取到结论
-                if (null == cellValue || "".equals(cellValue)) {
-                    String conclusion = rowData.get(header.getConclusionColumn());
-                    String remark = rowData.get(header.getConclusionColumn() + 1);
-                    Option option = new Option().setContent("默认").setCode("default");
-                    if (null != conclusion && !"".equals(conclusion.trim())) {
-                        if ("正常承保".equals(conclusion)) {
-                            option.setFlow("F05");
-                        } else if ("非常遗憾，被保险人无法投保该险种。".equals(conclusion)) {
-                            option.setFlow("F01");
-                        }
-                    } else {
-                        if (null != remark && !"".equals(remark.trim())) {
-                            option.setFlow("F04");
-                            option.setExceptCode(remark);
-                        }
-                    }
-                    issue.addOption(option);
-                }
-            }
-
+            // 合并单元格,需要定位开始行、结束行
+            int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
+            getChildren(issue, rowSpan[0], rowSpan[1], column + 1);
+            i = rowSpan[1];
         }
+    }
+
+    /**
+     * 计算开始行和结束行
+     *
+     * @param mergeRegions 所有跨行单元
+     * @param startRow     开始行
+     * @param endRow       结束行
+     * @param column       列
+     *
+     * @return {@code int{newStartRow, newEndRow}} 如果所处在坐标为跨行单元格，则计算开始和结束行
+     */
+    private static int[] calculateRowSpan(List<Result> mergeRegions, int startRow, int endRow, int column) {
+        int[] rowSpan = new int[]{startRow, endRow};
+        // 合并单元格,需要定位开始行、结束行
+        Result region = isMergedRegion(mergeRegions, startRow, column);
+        if (region != null) {
+            rowSpan[0] = region.startRow;
+            rowSpan[1] = region.endRow;
+        }
+        return rowSpan;
     }
 
     /**
@@ -236,5 +230,6 @@ public class TemplateResolver {
             this.endCol = endCol;
         }
     }
+
 
 }

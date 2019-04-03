@@ -1,4 +1,4 @@
-package org.gwcslife.platform.commons.util.execl.model;
+package org.gwcslife.platform.commons.execl.model;
 
 import lombok.Data;
 

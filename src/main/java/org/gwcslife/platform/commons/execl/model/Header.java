@@ -1,10 +1,13 @@
-package org.gwcslife.platform.commons.util.execl.model;
+package org.gwcslife.platform.commons.execl.model;
 
 
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 表头
