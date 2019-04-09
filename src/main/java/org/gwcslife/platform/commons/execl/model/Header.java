@@ -77,6 +77,16 @@ public class Header implements Serializable {
     }
 
     /**
+     * 获取分类开始列
+     * <p>开始列从0开始</p>
+     *
+     * @return {@code int}
+     */
+    public int getIssueStartColumn() {
+        return getClassStartColumn() + classList.size();
+    }
+
+    /**
      * 获取问题个数
      *
      * @return {@code int}

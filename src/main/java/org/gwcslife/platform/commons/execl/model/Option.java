@@ -63,4 +63,23 @@ public class Option implements Serializable {
         return this;
     }
 
+    /**
+     * 设置内容
+     * <p>讲自动设置"是"和"否"的问题代码</p>
+     *
+     * @param content 答案内容
+     *
+     * @return {@code this}
+     */
+    public Option setContent(String content) {
+        if (StringUtils.isNotBlank(content)) {
+            if ("是".equals(content)) {
+                this.code = "yes";
+            } else if (content.startsWith("否")) {
+                this.code = "no";
+            }
+        }
+        this.content = content;
+        return this;
+    }
 }

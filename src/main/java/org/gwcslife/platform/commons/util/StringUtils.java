@@ -11,22 +11,22 @@ public abstract class StringUtils {
     /**
      * 是否为空
      *
-     * @param str 断言字符
+     * @param cs 断言字符
      *
      * @return {@code true}
      */
-    public static boolean isBlank(String str) {
-        return str == null || "".equals(str.trim());
+    public static boolean isBlank(CharSequence cs) {
+        return org.apache.commons.lang3.StringUtils.isBlank(cs);
     }
 
     /**
      * 是否不为空
      *
-     * @param str 断言字符
+     * @param cs 断言字符
      *
      * @return {@code true}
      */
-    public static boolean isNotBlank(String str) {
-        return !isBlank(str);
+    public static boolean isNotBlank(CharSequence cs) {
+        return !isBlank(cs);
     }
 }

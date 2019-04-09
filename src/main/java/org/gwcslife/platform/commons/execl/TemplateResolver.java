@@ -53,6 +53,9 @@ public class TemplateResolver {
                 Issue issue = new Issue();
                 issue.setTitle(rowData.get(column));
                 issue.setType("C1");
+                if (issue.getTitle().equals("婴幼儿出生及疾病")) {
+                    System.out.println();
+                }
                 // 合并单元格,需要定位开始行、结束行
                 int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
                 getChildren(issue, rowSpan[0], rowSpan[1], column + 1);
@@ -73,8 +76,7 @@ public class TemplateResolver {
      * @param column      列
      */
     private static void getChildren(Issue parentIssue, int startRow, int endRow, int column) {
-        //                if (column >= header.getClassCount() + (header.getIssueCount() * 2)) {
-        if (column > header.getClassCount()) {
+        if (column >= header.getIssueStartColumn()) {
             return;
         }
         // 循环当前列单元格
@@ -83,23 +85,92 @@ public class TemplateResolver {
             String cellValue = rowData.get(column);
             // 不为空，加入父节点
             Issue issue = parentIssue;
+            // 合并单元格,需要定位开始行、结束行
+            int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
+            // 分类
             if (StringUtils.isNotBlank(cellValue)) {
                 issue = new Issue();
                 issue.setTitle(cellValue);
                 issue.setType("C1");
                 parentIssue.getChildren().add(issue);
-            } else if (startRow == endRow) {
-                String conclusion = rowData.get(header.getConclusionColumn());
-                String remark = rowData.get(header.getConclusionColumn() + 1);
-                Option option = new Option().setContent("默认").setCode("default").setConclusion(conclusion, remark);
-                issue.addOption(option);
+            } else {
+                // 非合并单元格
+                if (rowSpan[0] == rowSpan[1]) {
+                    String conclusion = rowData.get(header.getConclusionColumn());
+                    String remark = rowData.get(header.getConclusionColumn() + 1);
+                    Option option = new Option().setContent("默认").setCode("default").setConclusion(conclusion, remark);
+                    issue.addOption(option);
+                    return;
+                } else {
+                    // 获取问题
+                    getIssues(issue, null, rowSpan[0], rowSpan[1], header.getIssueStartColumn());
+                    i = rowSpan[1];
+                    continue;
+                }
             }
-            // 合并单元格,需要定位开始行、结束行
-            int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
+            // 获取子节点
             getChildren(issue, rowSpan[0], rowSpan[1], column + 1);
             i = rowSpan[1];
         }
     }
+
+    private static void getIssues(Issue parentIssue, Issue currIssue, int startRow, int endRow, int column) {
+        if (column >= header.getConclusionColumn()) {
+            return;
+        }
+
+        // 循环当前列单元格
+        for (int i = startRow, j = column - header.getIssueStartColumn() + 2; i <= endRow; i++) {
+            Issue issue = null;
+            List<String> rowData = allData.get(i);
+            String cellValue = rowData.get(column);
+            // 合并单元格,需要定位开始行、结束行
+            int[] rowSpan = calculateRowSpan(mergeRegions, i, i, column);
+            // 非合并单元格
+            if (rowSpan[0] == rowSpan[1]) {
+                // 处理答案（非合并单元格,只能是答案）
+                if (StringUtils.isNotBlank(cellValue)) {
+                    String optionContent = rowData.get(column);
+                    String conclusion = rowData.get(header.getConclusionColumn());
+                    String remark = rowData.get(header.getConclusionColumn() + 1);
+                    Option option = new Option().setContent(optionContent).setConclusion(conclusion, remark);
+                    // 获取对应的题目
+                    if (null != currIssue) {
+                        issue = currIssue;
+                        issue.addOption(option);
+                    }
+                } else {
+                    return;
+                }
+            } else {
+                // 题目
+                if (j % 2 == 0) {
+                    issue = new Issue();
+                    issue.setTitle(cellValue);
+                    issue.setType("C2");
+                    parentIssue.getChildren().add(issue);
+                    // 设置为上一题的下一题
+                    if (null != currIssue) {
+                        currIssue.getOptions().get(currIssue.getOptions().size() - 1).setNext(issue);
+                    }
+                }
+                // 答案
+                else {
+                    String optionContent = rowData.get(column);
+                    Option option = new Option().setContent(optionContent);
+                    option.setFlow("F02");
+                    if (null != currIssue) {
+                        issue = currIssue;
+                        issue.addOption(option);
+                    }
+                }
+            }
+
+            getIssues(parentIssue, issue, rowSpan[0], rowSpan[1], column + 1);
+            i = rowSpan[1];
+        }
+    }
+
 
     /**
      * 计算开始行和结束行
